@@ -1,0 +1,13 @@
+# "FLOW_DURATION_MILLISECONDS" = event.duration/10^9
+# "TCP_WIN_MAX_IN" =  flow.in.tcp.window.size_max
+# "DURATION_OUT" = ntop.out.c2s.duration
+# "MAX_TTL" = ip.ttl_max
+# "L7_PROTO" = app.id
+# "SRC_TO_DST_AVG_THROUGHPUT" = flow.client.throughput_avg
+# "SHORTEST_FLOW_PKT" = flow.packet_size_min 
+# "MIN_IP_PKT_LEN" = ip.packet.size_min
+# "TCP_WIN_MAX_OUT" = flow.out.tcp.window.size_max
+# "OUT_BYTES" = flow.out.bytes
+# "IPV4_SRC_ADDR" = client.domain
+# "IPV4_DST_ADDR" = destination.domain
+# "host.ip" = exporter ip
