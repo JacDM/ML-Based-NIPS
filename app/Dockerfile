@@ -4,10 +4,6 @@ FROM python:3.9
 
 WORKDIR /app
 
-RUN mkdir -p /app
+RUN ls -la && pip install pandas numpy scikit-learn==1.4.1.post1 elasticsearch joblib 
 
-COPY  config /app
-
-RUN pip install pandas numpy  scikit-learn==1.4.1.post1 elasticsearch joblib 
-
-CMD ["python","./app.py"]
+CMD ["python", "app.py"]

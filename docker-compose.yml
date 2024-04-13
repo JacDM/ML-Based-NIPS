@@ -122,7 +122,7 @@ services:
     environment:
       EF_LICENSE_ACCEPTED: 'true'
       EF_ACCOUNT_ID: ''
-      EF_FLOW_LICENSE_KEY: '.eyJhdWQiOiI2NjE3YTg5OTk3MjQ2ZTg3NjBjMTUyNTAiLCJleHAiOjE3MTUzODU2MDAsImlzcyI6ImVsYXN0aWZsb3ciLCJzdWIiOiI2MDNkODUwMDMzZDg2YjA3OTE5YjE5Y2EiLCJwb2wiOiI2MDNkODg5NzMzZDg2YjA3OTE5YjE5Y2MiLCJjb3IiOjY0LCJsdmwiOjgsImRpc2FibGVfcmlza2lxIjpmYWxzZSwidW50Ijo2NCwidiI6InYzIn0.3dnwbtkMBwi4czX6ufYXYRmMAnIJHQcuYVnn2yk2maw'
+      EF_FLOW_LICENSE_KEY: ''
       EF_FLOW_SERVER_UDP_IP: '0.0.0.0'
       EF_FLOW_SERVER_UDP_PORT: 2055
       EF_PROCESSOR_DECODE_NETFLOW9_ENABLE: 'true'
@@ -152,8 +152,12 @@ services:
       EF_OUTPUT_ELASTICSEARCH_PASSWORD: ${ELASTIC_PASSWORD:-}
 
   nips-script:
+    restart: unless-stopped
+    volumes:
+      - ./app:/app
     build:
       context: app/
+      dockerfile: Dockerfile
     privileged: true
     environment:
       ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:-}

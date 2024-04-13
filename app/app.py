@@ -4,7 +4,7 @@ import subprocess
 import platform
 import os
 from sklearn.tree import DecisionTreeClassifier
-from elasticsearch import Elasticsearch
+from elasticsearch import Elasticsearch, ConnectionError, TransportError
 from elasticsearch.helpers import scan
 from datetime import datetime
 from joblib import load
@@ -12,8 +12,9 @@ from time import sleep
 
 # Load Elasticsearch client
 #elasticPasswd = os.environ.get('ELASTIC_PASSWORD')
-#esClient = Elasticsearch('http://localhost:9200', basic_auth=["elastic", elasticPasswd])
-esClient = Elasticsearch('http://localhost:9200', basic_auth=["elastic", "changeme"])
+#esClient = Elasticsearch('http://elasticsearch:9200', basic_auth=["elastic", elasticPasswd])
+#Maybe different verbose modes
+esClient = Elasticsearch('http://elasticsearch:9200', basic_auth=["elastic", "changeme"])
 
 def logToElastic(logLevel,message, exception):
     doc = {
@@ -24,12 +25,13 @@ def logToElastic(logLevel,message, exception):
     '@Timestamp': datetime.now().isoformat()
     }
     result = esClient.index(index="nips", document=doc)
-    print(doc.values)
+    for key, value in doc.items():
+        print(f"{key}: {value}")
 
 # Load machine learning models
 try:
-    level1Classifier = load("app/config/models/L1Classifier.joblib")
-    level2Classifier = load("app/config/models/L2Classifier.joblib")
+    level1Classifier = load("config/models/L1Classifier.joblib")
+    level2Classifier = load("config/models/L2Classifier.joblib")
     print("Loaded Models")
 except Exception as e:
     logToElastic("ERROR","Failed to load machine learning models:", e)
@@ -108,7 +110,7 @@ def fetchAndClassifyFlows():
                             {
                                 "range": {
                                     "@timestamp": {
-                                        "gt": "now-2h"
+                                        "gt": "now-24h"
                                     }
                                 }
                             },
@@ -142,9 +144,6 @@ def fetchAndClassifyFlows():
                         subset.append(record['_source'][feature])
                     except:
                         subset.append(None)
-
-                if any(value is None for value in subset[:4]):
-                    continue
                 
                 print("Classifiying flow produced by: ",subset[0])
                 subsetFrame = np.array(subset[5:])
@@ -154,17 +153,20 @@ def fetchAndClassifyFlows():
                 binaryPrediction = int(Level1FlowPredictor(subsetFrame)[0])
                 if binaryPrediction == 1:
                     multiclassPrediction = int(Level2FlowPredictor(subsetFrame)[0])
-                    logToElastic("Attack Detected: Source IP Address: ", subset[0], "Source Port: ", subset[2], "Destination IP Address: ", subset[1], "Source Port: ", subset[3], "Attack Classification:", multiClassificationLabels[multiclassPrediction])
+                    logToElastic("INFO",f"Attack Detected, Level-2-Classifier suggests: {multiClassificationLabels[multiclassPrediction]}. From: Source IP Address:  {subset[0]}, Source Port: {subset[2]}, To: Destination IP Address: {subset[1]}, Source Port: {subset[3]}",None)
 
             # Sleep for a bit before querying again
             sleep(1)
-
+        except ConnectionError:
+            logToElastic("ERROR","ConnectionError: Unable to connect to Elasticsearch. Check if Elasticsearch is running.",None)
+            sleep(60)
+            fetchAndClassifyFlows()
         except KeyboardInterrupt:
             logToElastic("INFO","Received KeyboardInterrupt. Exiting...",None)
             break
         except Exception as e:
             logToElastic("ERROR","An error occurred within the main loop:", e)
-            break
+            exit()
 
 # Functions for flow classification
 def Level1FlowPredictor(flow):
