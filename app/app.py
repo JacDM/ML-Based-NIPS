@@ -1,8 +1,10 @@
 import pandas as pd
 import numpy as np
-import subprocess
 import platform
+import socket
+import paramiko
 import os
+
 from sklearn.tree import DecisionTreeClassifier
 from elasticsearch import Elasticsearch, ConnectionError, TransportError
 from elasticsearch.helpers import scan
@@ -10,11 +12,32 @@ from datetime import datetime
 from joblib import load
 from time import sleep
 
+
+port = 22 # SSH port (default is 22)
+
+
+
 # Load Elasticsearch client
-#elasticPasswd = os.environ.get('ELASTIC_PASSWORD')
-#esClient = Elasticsearch('http://elasticsearch:9200', basic_auth=["elastic", elasticPasswd])
-#Maybe different verbose modes
-esClient = Elasticsearch('http://elasticsearch:9200', basic_auth=["elastic", "changeme"])
+if (os.path.exists('/.dockerenv')):
+    elasticPasswd = os.environ.get('ELASTIC_PASSWORD')
+    esClient = Elasticsearch('http://elasticsearch:9200', basic_auth=["elastic", elasticPasswd])
+    hostIP = socket.gethostbyname("host.docker.internal")
+    username = os.environ.get('OS_USER')
+    password = os.environ.get('OS_PASSWORD')
+    consoleLogLevel = int(os.environ.get('LOG_LEVEL'))
+    nipsMode = int(os.environ.get('NIPS_MODE'))
+    timeFrame = os.environ.get('TIMEFRAME') 
+    modelsPATH = "config/models/"
+else: #needs to be setup if not running script on docker but on host OS
+    esClient = Elasticsearch('http://localhost:9200', basic_auth=["elastic", "changeme"])
+    hostIP = "127.0.0.1"
+    username = "yourUsername"  # Replace with your username
+    password = "yourPassword"  # Replace with your password
+    consoleLogLevel = 1 #Replace with desired log level
+    nipsMode = 0 #Enables IP Blockinf if attack is detected
+    timeFrame = "5m" #Defines timeframe to lookback from for elastic
+    modelsPATH = "app/config/models/"
+
 
 def logToElastic(logLevel,message, exception):
     doc = {
@@ -24,36 +47,53 @@ def logToElastic(logLevel,message, exception):
     'exception' : str(exception),
     '@Timestamp': datetime.now().isoformat()
     }
-    result = esClient.index(index="nips", document=doc)
-    for key, value in doc.items():
-        print(f"{key}: {value}")
-
+    try:
+        result = esClient.index(index="nips", document=doc)
+    except ConnectionError:
+            print("ERROR: ConnectionError: Unable to connect to Elasticsearch. Check if Elasticsearch is running.")
+            sleep(60)
+            logToElastic(logLevel,message, exception)
+    if(consoleLogLevel >= 1):
+        if logLevel == "ATTACK" or logLevel == "INFO":
+            print("LogLevel: "+logLevel)
+            print(message)
+            print("At time: "+doc['@Timestamp'])
+        else:
+            for key, value in doc.items():
+                print(f"{key}: {value}")
 # Load machine learning models
 try:
-    level1Classifier = load("config/models/L1Classifier.joblib")
-    level2Classifier = load("config/models/L2Classifier.joblib")
+    level1Classifier = load(modelsPATH + "L1Classifier.joblib")
+    level2Classifier = load(modelsPATH + "L2Classifier.joblib")
     print("Loaded Models")
 except Exception as e:
     logToElastic("ERROR","Failed to load machine learning models:", e)
     exit()
 
-def blockIP(ip_address):
-    current_platform = platform.system()
+def blockIP(ipAddress):
+    currentPlatform = platform.system()
+    sshClient = paramiko.SSHClient()
+    sshClient.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
     # Execute platform-specific command to block the IP address
-    if current_platform == 'Windows':
-        command = ['netsh', 'advfirewall', 'firewall', 'add', 'rule', 'name="Block IP"', 'dir=in', 'interface=any', 'action=block', f'remoteip={ip_address}']
-    elif current_platform == 'Linux':
-        command = ['iptables', '-A', 'INPUT', '-s', ip_address, '-j', 'DROP']
+    if currentPlatform == 'Windows':
+        command = ['netsh', 'advfirewall', 'firewall', 'add', 'rule', 'name="Block IP"', 'dir=in', 'interface=any', 'action=block', f'remoteip={ipAddress}']
+    elif currentPlatform == 'Linux':
+        command = ['iptables', '-A', 'INPUT', '-s', ipAddress, '-j', 'DROP']
     else:
         print("Unsupported platform only Linux And Windows")
         return
-
     try:
-        result = subprocess.run(command, capture_output=True, text=True, check=True)
-        logToElastic("INFO","Blocked IP",result.stdout)
-    except subprocess.CalledProcessError as e:
-        logToElastic("ERROR","Error blocking IP", {e.stderr})
+        sshClient.connect(hostname=hostIP, port=port, username=username, password=password)
+        stdin, stdout, stderr = sshClient.exec_command(command)
+        output = stdout.read().decode('utf-8')
+        error = stderr.read().decode('utf-8')
+        
+        logToElastic("INFO",f"SSH Connection successfull,STDIN:{command},STDOUT: {output}, STDERR: {error}")
+    except paramiko.AuthenticationException:
+        logToElastic("ERROR","Authentication failed. Please check your SSH credentials.",None)
+    except paramiko.SSHException as e:
+        logToElastic("ERROR","SSH error",e)
     except Exception as e:
         logToElastic("ERROR","An error occurred", e)
 
@@ -110,7 +150,7 @@ def fetchAndClassifyFlows():
                             {
                                 "range": {
                                     "@timestamp": {
-                                        "gt": "now-24h"
+                                        "gt": "now-" + timeFrame
                                     }
                                 }
                             },
@@ -144,8 +184,11 @@ def fetchAndClassifyFlows():
                         subset.append(record['_source'][feature])
                     except:
                         subset.append(None)
-                
-                print("Classifiying flow produced by: ",subset[0])
+
+                if(consoleLogLevel >=2):
+                    print("Classifiying flow produced by: ",subset[0])
+                if(subset[5] != None):
+                    subset[5] = subset[5]/1000000000
                 subsetFrame = np.array(subset[5:])
                 subsetFrame = subsetFrame.reshape(1, -1)
                 subsetFrame = pd.DataFrame(subsetFrame, columns=paper19Features, index=None)
@@ -153,8 +196,13 @@ def fetchAndClassifyFlows():
                 binaryPrediction = int(Level1FlowPredictor(subsetFrame)[0])
                 if binaryPrediction == 1:
                     multiclassPrediction = int(Level2FlowPredictor(subsetFrame)[0])
-                    logToElastic("INFO",f"Attack Detected, Level-2-Classifier suggests: {multiClassificationLabels[multiclassPrediction]}. From: Source IP Address:  {subset[0]}, Source Port: {subset[2]}, To: Destination IP Address: {subset[1]}, Source Port: {subset[3]}",None)
+                    if (multiclassPrediction == 0):
+                        logToElastic("INFO",f"Attack Detected, Level-2-Classifier suggests it is: {multiClassificationLabels[multiclassPrediction]}. From: Source IP Address:  {subset[0]}, Source Port: {subset[2]}, To: Destination IP Address: {subset[1]}, Source Port: {subset[3]}",None)
+                    else:
+                        logToElastic("ATTACK",f"Attack Detected, Level-2-Classifier suggests it is: {multiClassificationLabels[multiclassPrediction]}. From: Source IP Address:  {subset[0]}, Source Port: {subset[2]}, To: Destination IP Address: {subset[1]}, Source Port: {subset[3]}",None)
 
+                    if (nipsMode == 1):
+                        blockIP(subset[0])
             # Sleep for a bit before querying again
             sleep(1)
         except ConnectionError:

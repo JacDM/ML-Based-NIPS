@@ -67,28 +67,6 @@ services:
       - elk
     restart: unless-stopped
 
-  # logstash:
-  #   build:
-  #     context: logstash/
-  #     args:
-  #       ELASTIC_VERSION: ${ELASTIC_VERSION}
-  #   volumes:
-  #     - ./logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml:ro,Z
-  #     - ./logstash/pipeline:/usr/share/logstash/pipeline:ro,Z
-  #   ports:
-  #     - 5044:5044
-  #     - 50000:50000/tcp
-  #     - 50000:50000/udp
-  #     - 9600:9600
-  #     - 2055:2055/udp
-  #   environment:
-  #     LS_JAVA_OPTS: -Xms1g -Xmx1g
-  #     LOGSTASH_INTERNAL_PASSWORD: ${LOGSTASH_INTERNAL_PASSWORD:-}
-  #   networks:
-  #     - elk
-  #   depends_on:
-  #     - elasticsearch
-  #   restart: unless-stopped
 
   kibana:
     build:
@@ -121,8 +99,8 @@ services:
       - elasticsearch
     environment:
       EF_LICENSE_ACCEPTED: 'true'
-      EF_ACCOUNT_ID: ''
-      EF_FLOW_LICENSE_KEY: ''
+      EF_ACCOUNT_ID: '6617a89997246e8760c15250'
+      EF_FLOW_LICENSE_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiI2NjE3YTg5OTk3MjQ2ZTg3NjBjMTUyNTAiLCJleHAiOjE3MTUzODU2MDAsImlzcyI6ImVsYXN0aWZsb3ciLCJzdWIiOiI2MDNkODUwMDMzZDg2YjA3OTE5YjE5Y2EiLCJwb2wiOiI2MDNkODg5NzMzZDg2YjA3OTE5YjE5Y2MiLCJjb3IiOjY0LCJsdmwiOjgsImRpc2FibGVfcmlza2lxIjpmYWxzZSwidW50Ijo2NCwidiI6InYzIn0.3dnwbtkMBwi4czX6ufYXYRmMAnIJHQcuYVnn2yk2maw'
       EF_FLOW_SERVER_UDP_IP: '0.0.0.0'
       EF_FLOW_SERVER_UDP_PORT: 2055
       EF_PROCESSOR_DECODE_NETFLOW9_ENABLE: 'true'
@@ -161,6 +139,11 @@ services:
     privileged: true
     environment:
       ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:-}
+      OS_USER: ${OS_USER:-}
+      OS_PASSWORD: ${OS_PASSWORD:-}
+      LOG_LEVEL: ${LOG_LEVEL:-}
+      NIPS_MODE: ${NIPS_MODE:-}
+      TIMEFRAME: ${TIMEFRAME:-}
     networks:
       - elk
     depends_on:
