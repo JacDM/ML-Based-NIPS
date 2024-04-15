@@ -83,11 +83,11 @@ While kibana works, you need to setup certain things to make flows enter python 
 after elastiflow sends some flows to elastic, you can enter `elastic*` in the index pattern field and select `@Timestamp` from the dropdown for the timestamp field. Name the view `elastiflow*` as well and save the view. if it matches some sources, amazing, if not, then nProbe is not sending data to elastic.
 Remember if you dont see any data try changing the time frame on the top right of every page
 
-![Elastiflow data View](Figures\Elastiflow.png "Elastiflow data View")
+![Elastiflow data View](Figures/Elastiflow.png "Elastiflow data View")
 
 To get the visualizations like the one below:
 
-![Elastiflow Sankey Diagram](Figures\ElastiflowSankey.png "Elastiflow Sankey Diagram")
+![Elastiflow Sankey Diagram](Figures/ElastiflowSankey.png "Elastiflow Sankey Diagram")
 
 its a little more involved:
 * Navigate to the hamburger menu and scroll dowwn and click `management`
