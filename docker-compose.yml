@@ -144,6 +144,7 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-}
       NIPS_MODE: ${NIPS_MODE:-}
       TIMEFRAME: ${TIMEFRAME:-}
+      HOST_OS: ${HOST_OS:-}
     networks:
       - elk
     depends_on:

@@ -1,59 +1,59 @@
 # Elastic stack (ELK) on Docker
 
+Most of the documentation, mutch like the base ELK implementation is from Anthony Lapenna AKA [deviantony](https://github.com/deviantony) used under his MIT License
+
 [![Elastic Stack version](https://img.shields.io/badge/Elastic%20Stack-8.13.1-00bfb3?style=flat&logo=elastic-stack)](https://www.elastic.co/blog/category/releases)
-[![Build Status](https://github.com/deviantony/docker-elk/workflows/CI/badge.svg?branch=main)](https://github.com/deviantony/docker-elk/actions?query=workflow%3ACI+branch%3Amain)
-[![Join the chat](https://badges.gitter.im/Join%20Chat.svg)](https://app.gitter.im/#/room/#deviantony_docker-elk:gitter.im)
-
-Run the latest version of the [Elastic stack][elk-stack] with Docker and Docker Compose.
-
-It gives you the ability to analyze any data set by using the searching/aggregation capabilities of Elasticsearch and
-the visualization power of Kibana.
 
 Based on the [official Docker images][elastic-docker] from Elastic:
 
 * [Elasticsearch](https://github.com/elastic/elasticsearch/tree/main/distribution/docker)
-* [Logstash](https://github.com/elastic/logstash/tree/main/docker)
+* [Elastiflow](https://hub.docker.com/r/elastiflow/flow-collector)
 * [Kibana](https://github.com/elastic/kibana/tree/main/src/dev/build/tasks/os_packages/docker_generator)
+* [Python 3.9](https://hub.docker.com/_/python)
 
-Other available stack variants:
-
-* [`tls`](https://github.com/deviantony/docker-elk/tree/tls): TLS encryption enabled in Elasticsearch, Kibana (opt in),
-  and Fleet
-* [`searchguard`](https://github.com/deviantony/docker-elk/tree/searchguard): Search Guard support
-
-> [!IMPORTANT]
-> [Platinum][subscriptions] features are enabled by default for a [trial][license-mngmt] duration of **30 days**. After
-> this evaluation period, you will retain access to all the free features included in the Open Basic license seamlessly,
-> without manual intervention required, and without losing any data. Refer to the [How to disable paid
-> features](#how-to-disable-paid-features) section to opt out of this behaviour.
 
 ---
-
-## tl;dr
-
+## Installation
+Clone this repository onto the Docker host that will run the stack with the command below:
+```sh
+git clone https://github.com/JacDM/ML-Based-NIPS.git
+```
+Navigate to the directory
+```sh
+cd ML-Based-NIPS
+```
+Wait for Elasticsearch to start, if the setup container faile, run it again and elasticsearc should be up. 
 ```sh
 docker-compose up setup
 ```
-
+The next command is to start all other containers as they all depend on Elasticsearch
 ```sh
 docker-compose up
 ```
+## Machine Learning & Deep Learning Experimentation
+To run the jupyter Notebook, you need to download and extract the dataset into the root of the Datasets folder. you can then run the file up to the Decision Tree section at which point, the modified and reduces dataset should be saved and you don't have to run that section again which makes things easier.
 
-![Animated demo](https://user-images.githubusercontent.com/3299086/155972072-0c89d6db-707a-47a1-818b-5f976565f95a.gif)
+## Running the NIPS
+By default it should run automatically, in the case that it takes too long or dosent start, you can execute:
+```sh
+python app.py
+```
+to start the app manually, or just run it independently from the compose on your hosts system which is my favorite method of doing it as you dent have to fiddle with global docker variables.
 
----
+## Setting up NIPS Parameters
+```python
+esClient = Elasticsearch('http://localhost:9200', basic_auth=["elastic", "changeme"])
+    hostIP = "127.0.0.1" # used to open SSH Client to your host OS to add firewall rules.
+    username = "NIPS"  # Replace with your username
+    password = "passwd"  # Replace with your password
+    consoleLogLevel = 1 #Replace with desired log level
+    nipsMode = 1 #Enables IP Blockinf if attack is detected
+    timeFrame = "5m" #Defines timeframe to lookback from for elastic
+    modelsPATH = "app/config/models/" # Path where models are stored
+```
+These parameters can are hardcoded and if you run them on your host OS then they will be user, also make sure all packages listed in app/Dockerfile are installed in your host if you want to run the script on your host. Make sure sklearn is version 1.4.1-post1
 
-## Philosophy
-
-We aim at providing the simplest possible entry into the Elastic stack for anybody who feels like experimenting with
-this powerful combo of technologies. This project's default configuration is purposely minimal and unopinionated. It
-does not rely on any external dependency, and uses as little custom automation as necessary to get things up and
-running.
-
-Instead, we believe in good documentation so that you can use this repository as a template, tweak it, and make it _your
-own_. [sherifabdlnaby/elastdocker][elastdocker] is one example among others of project that builds upon this idea.
-
----
+However if you run it via docker, then you dont need to wwory aboyut the packages as they will install themselves.
 
 ## Contents
 
@@ -63,10 +63,6 @@ own_. [sherifabdlnaby/elastdocker][elastdocker] is one example among others of p
      * [Windows](#windows)
      * [macOS](#macos)
 1. [Usage](#usage)
-   * [Bringing up the stack](#bringing-up-the-stack)
-   * [Initial setup](#initial-setup)
-     * [Setting up user authentication](#setting-up-user-authentication)
-     * [Injecting data](#injecting-data)
    * [Cleanup](#cleanup)
    * [Version selection](#version-selection)
 1. [Configuration](#configuration)
@@ -100,9 +96,7 @@ own_. [sherifabdlnaby/elastdocker][elastdocker] is one example among others of p
 
 By default, the stack exposes the following ports:
 
-* 5044: Logstash Beats input
-* 50000: Logstash TCP input
-* 9600: Logstash monitoring API
+* 2025: ElastiFlow Netflow input
 * 9200: Elasticsearch HTTP
 * 9300: Elasticsearch TCP transport
 * 5601: Kibana
@@ -120,36 +114,27 @@ If you are using the legacy Hyper-V mode of _Docker Desktop for Windows_, ensure
 enabled for the `C:` drive.
 
 #### macOS
+> [!WARNING]
+> While the NIPS technically can run on a mac but it has not been tested and is not suported, Additionally, NIPS Mode, which blocks IP's will not work as there is no command for it so set the docker env variables and dockerfile defaults in the app folder accordingly.
 
 The default configuration of _Docker Desktop for Mac_ allows mounting files from `/Users/`, `/Volume/`, `/private/`,
 `/tmp` and `/var/folders` exclusively. Make sure the repository is cloned in one of those locations or follow the
 instructions from the [documentation][mac-filesharing] to add more locations.
 
 ## Usage
+> [!NOTE]
+> The instructions bellow are straight from deviantony for troubleshooting and you should not need any of the following.
+
+> [!IMPORTANT]
+> [Platinum][subscriptions] features are enabled by default for a [trial][license-mngmt] duration of **30 days**. After
+> this evaluation period, you will retain access to all the free features included in the Open Basic license seamlessly,
+> without manual intervention required, and without losing any data. Refer to the [How to disable paid
+> features](#how-to-disable-paid-features) section to opt out of this behaviour.
 
 > [!WARNING]
 > You must rebuild the stack images with `docker-compose build` whenever you switch branch or update the
 > [version](#version-selection) of an already existing stack.
 
-### Bringing up the stack
-
-Clone this repository onto the Docker host that will run the stack with the command below:
-
-```sh
-git clone https://github.com/deviantony/docker-elk.git
-```
-
-Then, initialize the Elasticsearch users and groups required by docker-elk by executing the command:
-
-```sh
-docker-compose up setup
-```
-
-If everything went well and the setup completed without error, start the other stack components:
-
-```sh
-docker-compose up
-```
 
 > [!NOTE]
 > You can also run all services in the background (detached mode) by appending the `-d` flag to the above command.
@@ -161,7 +146,7 @@ browser and use the following (default) credentials to log in:
 * password: *changeme*
 
 > [!NOTE]
-> Upon the initial startup, the `elastic`, `logstash_internal` and `kibana_system` Elasticsearch users are intialized
+> Upon the initial startup, the `elastic`, and `kibana_system` Elasticsearch users are intialized
 > with the values of the passwords defined in the [`.env`](.env) file (_"changeme"_ by default). The first one is the
 > [built-in superuser][builtin-users], the other two are used by Kibana and Logstash respectively to communicate with
 > Elasticsearch. This task is only performed during the _initial_ startup of the stack. To change users' passwords
@@ -182,17 +167,12 @@ reset the passwords of all aforementioned Elasticsearch users to random secrets.
 
 1. Reset passwords for default users
 
-    The commands below reset the passwords of the `elastic`, `logstash_internal` and `kibana_system` users. Take note
+    The commands below reset the passwords of the `elastic`and `kibana_system` users. Take note
     of them.
 
     ```sh
     docker-compose exec elasticsearch bin/elasticsearch-reset-password --batch --user elastic
     ```
-
-    ```sh
-    docker-compose exec elasticsearch bin/elasticsearch-reset-password --batch --user logstash_internal
-    ```
-
     ```sh
     docker-compose exec elasticsearch bin/elasticsearch-reset-password --batch --user kibana_system
     ```
@@ -212,46 +192,19 @@ reset the passwords of all aforementioned Elasticsearch users to random secrets.
     > prefer to create your own roles and users to authenticate these services, it is safe to remove the
     > `ELASTIC_PASSWORD` entry from the `.env` file altogether after the stack has been initialized.
 
-    Replace the password of the `logstash_internal` user inside the `.env` file with the password generated in the
-    previous step. Its value is referenced inside the Logstash pipeline file (`logstash/pipeline/logstash.conf`).
-
     Replace the password of the `kibana_system` user inside the `.env` file with the password generated in the previous
     step. Its value is referenced inside the Kibana configuration file (`kibana/config/kibana.yml`).
 
     See the [Configuration](#configuration) section below for more information about these configuration files.
 
-1. Restart Logstash and Kibana to re-connect to Elasticsearch using the new passwords
+1. Restart Python and Kibana to re-connect to Elasticsearch using the new passwords
 
     ```sh
-    docker-compose up -d logstash kibana
+    docker-compose up -d python kibana
     ```
 
 > [!NOTE]
 > Learn more about the security of the Elastic stack at [Secure the Elastic Stack][sec-cluster].
-
-#### Injecting data
-
-Launch the Kibana web UI by opening <http://localhost:5601> in a web browser, and use the following credentials to log
-in:
-
-* user: *elastic*
-* password: *\<your generated elastic password>*
-
-Now that the stack is fully configured, you can go ahead and inject some log entries.
-
-The shipped Logstash configuration allows you to send data over the TCP port 50000. For example, you can use one of the
-following commands — depending on your installed version of `nc` (Netcat) — to ingest the content of the log file
-`/path/to/logfile.log` in Elasticsearch, via Logstash:
-
-```sh
-# Execute `nc -h` to determine your `nc` version
-
-cat /path/to/logfile.log | nc -q0 localhost 50000          # BSD
-cat /path/to/logfile.log | nc -c localhost 50000           # GNU
-cat /path/to/logfile.log | nc --send-only localhost 50000  # nmap
-```
-
-You can also load the sample data provided by your Kibana installation.
 
 ### Cleanup
 

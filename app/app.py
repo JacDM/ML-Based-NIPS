@@ -16,27 +16,46 @@ from time import sleep
 port = 22 # SSH port (default is 22)
 
 
+def getHostIP():
+    try:
+        # Try resolving the hostname "host.docker.internal"
+        hostIP = socket.gethostbyname("host.docker.internal")
+        print("IP address of the host machine:", hostIP)
+    except socket.gaierror:
+        print("Failed to resolve host.docker.internal. Trying alternative methods...")
+        try:
+            # Get the IP address using the hostname "gateway.docker.internal"
+            hostIP = socket.gethostbyname("gateway.docker.internal")
+            print("IP address of the host machine:", hostIP)
+        except socket.gaierror:
+            print("Failed to resolve gateway.docker.internal. Unable to determine host IP.")
+    return None
+
 
 # Load Elasticsearch client
 if (os.path.exists('/.dockerenv')):
     elasticPasswd = os.environ.get('ELASTIC_PASSWORD')
     esClient = Elasticsearch('http://elasticsearch:9200', basic_auth=["elastic", elasticPasswd])
-    hostIP = socket.gethostbyname("host.docker.internal")
-    username = os.environ.get('OS_USER')
-    password = os.environ.get('OS_PASSWORD')
+    hostIP = getHostIP()
+    nipsMode = 0
+    if hostIP != None:
+        username = os.environ.get('OS_USER')
+        password = os.environ.get('OS_PASSWORD')
+        nipsMode = int(os.environ.get('NIPS_MODE'))
     consoleLogLevel = int(os.environ.get('LOG_LEVEL'))
-    nipsMode = int(os.environ.get('NIPS_MODE'))
     timeFrame = os.environ.get('TIMEFRAME') 
     modelsPATH = "config/models/"
+    currentPlatform = os.environ.get('HOST_OS')
 else: #needs to be setup if not running script on docker but on host OS
     esClient = Elasticsearch('http://localhost:9200', basic_auth=["elastic", "changeme"])
     hostIP = "127.0.0.1"
-    username = "yourUsername"  # Replace with your username
-    password = "yourPassword"  # Replace with your password
+    username = "NIPS"  # Replace with your username
+    password = "passwd"  # Replace with your password
     consoleLogLevel = 1 #Replace with desired log level
-    nipsMode = 0 #Enables IP Blockinf if attack is detected
+    nipsMode = 1 #Enables IP Blockinf if attack is detected
     timeFrame = "5m" #Defines timeframe to lookback from for elastic
     modelsPATH = "app/config/models/"
+    currentPlatform = platform.system()
 
 
 def logToElastic(logLevel,message, exception):
@@ -49,7 +68,7 @@ def logToElastic(logLevel,message, exception):
     }
     try:
         result = esClient.index(index="nips", document=doc)
-    except ConnectionError:
+    except Exception as e:
             print("ERROR: ConnectionError: Unable to connect to Elasticsearch. Check if Elasticsearch is running.")
             sleep(60)
             logToElastic(logLevel,message, exception)
@@ -67,17 +86,16 @@ try:
     level2Classifier = load(modelsPATH + "L2Classifier.joblib")
     print("Loaded Models")
 except Exception as e:
-    logToElastic("ERROR","Failed to load machine learning models:", e)
+    print("ERROR","Failed to load machine learning models:", e)
     exit()
 
 def blockIP(ipAddress):
-    currentPlatform = platform.system()
     sshClient = paramiko.SSHClient()
     sshClient.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
     # Execute platform-specific command to block the IP address
     if currentPlatform == 'Windows':
-        command = ['netsh', 'advfirewall', 'firewall', 'add', 'rule', 'name="Block IP"', 'dir=in', 'interface=any', 'action=block', f'remoteip={ipAddress}']
+        command = ['netsh', 'advfirewall', 'firewall', 'add', 'rule', f'name="Block IP{ipAddress}"', 'dir=in', 'interface=any', 'action=block', f'remoteip={ipAddress}']
     elif currentPlatform == 'Linux':
         command = ['iptables', '-A', 'INPUT', '-s', ipAddress, '-j', 'DROP']
     else:
@@ -89,7 +107,7 @@ def blockIP(ipAddress):
         output = stdout.read().decode('utf-8')
         error = stderr.read().decode('utf-8')
         
-        logToElastic("INFO",f"SSH Connection successfull,STDIN:{command},STDOUT: {output}, STDERR: {error}")
+        logToElastic("INFO",f"SSH Connection successfull And blocked IP: {ipAddress},STDIN:{command},STDOUT: {output}, STDERR: {error}")
     except paramiko.AuthenticationException:
         logToElastic("ERROR","Authentication failed. Please check your SSH credentials.",None)
     except paramiko.SSHException as e:
