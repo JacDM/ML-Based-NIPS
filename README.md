@@ -55,11 +55,52 @@ These parameters can are hardcoded and if you run them on your host OS then they
 
 However if you run it via docker, then you dont need to wwory aboyut the packages as they will install themselves.
 
+## Setting up SSH
+Also for NIPS to work you need to setup an ssl server on the host, for windows you can follow the [Tutorial](https://petri.com/the-ultimate-guide-to-installing-openssh-on-windows/) 
+
+## Setting up nProbe
+> [!WARNING]
+> nProbe requires a licence to generate flows, contact ntop team to request an educational licence for free, i cannot share mine as they are linked to my VM and will not work on another machine
+
+install nprobe from the ntop website and setup the licence file, and run the code bellow after navigating to the install directory/bin
+```sh
+.\nprobe /c -i ’Intel(R) PRO/1000 MT Network Connection #3’ -V 9 -b 1 -t 60 -o
+1 --export-template -T " %IPV4_SRC_ADDR %L4_SRC_PORT %IPV4_DST_ADDR
+%L4_DST_PORT %PROTOCOL %FLOW_DURATION_MILLISECONDS %TCP_WIN_MAX_IN
+%DURATION_OUT %MAX_TTL %L7_PROTO %SRC_TO_DST_AVG_THROUGHPUT %SHORTEST_FLOW_PKT
+%MIN_IP_PKT_LEN %TCP_WIN_MAX_OUT %OUT_BYTES %FIRST_SWITCHED %LAST_SWITCHED "
+```
+-V, specifies the netflow format used, -t is the timeout for active conversations and -T
+specifies the features we want to be sent in the flow.
+
+
+
+## Setting up Kibana
+While kibana works, you need to setup certain things to make flows enter python and make visualization easy, first head to the discover panel and create a new data view, 
+
+![Elastiflow view setup](Figures/1.png "Elastiflow view setup")
+
+after elastiflow sends some flows to elastic, you can enter `elastic*` in the index pattern field and select `@Timestamp` from the dropdown for the timestamp field. Name the view `elastiflow*` as well and save the view. if it matches some sources, amazing, if not, then nProbe is not sending data to elastic.
+Remember if you dont see any data try changing the time frame on the top right of every page
+
+![Elastiflow data View](Figures\Elastiflow.png "Elastiflow data View")
+
+To get the visualizations like the one below:
+
+![Elastiflow Sankey Diagram](Figures\ElastiflowSankey.png "Elastiflow Sankey Diagram")
+
+its a little more involved:
+* Navigate to the hamburger menu and scroll dowwn and click `management`
+* Scroll down the list to the kibana section and click `saved objects`.
+* from this page, hit the import button and grab the file located at k`ibana\Dashboard.ndjson` in this repo and import all 400 or so objects.
+* Next navigate to `data views` within the kibana section of the leftward menu
+* 3 new flows views will popup following the syntax `elastiflow-X-ecs*` click on each one click the edit button and change the index patern to `elastiflow*`
+* Now when you go to any of the dashboards, some elements may be brocken as some IE that are parsed by elastiflow have different names. all you have to do is edit them and chose an appropriate feature to replace it. 
+## Elastiflow
 > [!WARNING]
 > Elastiflow requires the free trial version to collect and parse nprobe Information Elements, the current credentials will expire on 11/05/2024, if it does you can go to elastiflows website and gain another account id and licence key.
 
-> [!WARNING]
-> nProbe requires a licence to generate flows, contact ntop team to request an educational licence for free, i cannot share mine as they are linked to my VM and will not work on anothe machine
+
 
 
 ## Contents
