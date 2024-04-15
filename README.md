@@ -55,6 +55,13 @@ These parameters can are hardcoded and if you run them on your host OS then they
 
 However if you run it via docker, then you dont need to wwory aboyut the packages as they will install themselves.
 
+> [!WARNING]
+> Elastiflow requires the free trial version to collect and parse nprobe Information Elements, the current credentials will expire on 11/05/2024, if it does you can go to elastiflows website and gain another account id and licence key.
+
+> [!WARNING]
+> nProbe requires a licence to generate flows, contact ntop team to request an educational licence for free, i cannot share mine as they are linked to my VM and will not work on anothe machine
+
+
 ## Contents
 
 1. [Requirements](#requirements)
