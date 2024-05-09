@@ -1,4 +1,4 @@
-# Elastic stack (ELK) on Docker
+# NetFlow-Based-ML-NIPS on Docker
 
 Most of the documentation, mutch like the base ELK implementation is from Anthony Lapenna AKA [deviantony](https://github.com/deviantony) used under his MIT License
 
@@ -31,7 +31,8 @@ The next command is to start all other containers as they all depend on Elastics
 docker-compose up
 ```
 ## Machine Learning & Deep Learning Experimentation
-To run the jupyter Notebook, you need to download and extract the dataset into the root of the Datasets folder. you can then run the file up to the Decision Tree section at which point, the modified and reduces dataset should be saved and you don't have to run that section again which makes things easier.
+To run the jupyter Notebook, you need to download and extract the dataset into a folder called NF-ToN-IoT-v2 within the Data Sets folder. you can then run the file up to the Decision Tree section at which point, the modified and reduces dataset should be saved and you don't have to run that section again which makes things easier.
+yuou can also skip that and use the already preprocessed files by running the second part and only running the `For Neural Networks` cell when testing ANN's.
 
 ## Running the NIPS
 By default it should run automatically, in the case that it takes too long or dosent start, you can execute:
@@ -144,7 +145,7 @@ its a little more involved:
 
 By default, the stack exposes the following ports:
 
-* 2025: ElastiFlow Netflow input
+* 2055: ElastiFlow Netflow input
 * 9200: Elasticsearch HTTP
 * 9300: Elasticsearch TCP transport
 * 5601: Kibana
